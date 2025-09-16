@@ -1,0 +1,225 @@
+---
+title: "Regression Models"
+output: html_notebook
+---
+# Bivariate Regression:  
+A bivariate regression is the simplest form of regression analysis, where you study the relationship between two variables:
+- One dependent variable (Y) → the outcome you want to explain or predict.
+- One independent variable (X) → the predictor or explanatory variable.
+
+## homoskedasticity-only standard error vs. heteroskedasticity-robust standard error
+Homoskedasticity-only standard error has the assumption that $Var(\epsilon|X_{i})=\sigma^2$, where $sigma$ is a constant. 
+
+Heteroskedasticity-robust standard error doesn't rely on this assumption: $Var(\epsilon|X_{i})=\sigma^2$ and $sigma$ is a constant. Instead, it provides a more consistent estimate of the standard errors. It is always safer to use the robust standard error so we can get better confidence intervals, T-statistics. 
+
+Analogy: Predicting the price of house based on size, homoskedasticity-only standard error would say our model has the same level of prediction power for smaller houses as it does for larger mansions, with assumption that unpredictable factors such as seller's motivation is similar for all houses. However, this might not true, we can not guaranteen that all unpreditable factors have same variabilities. ---> Always use robust standard erros unless you have a very strong, specific reason to believe your errors are homoskedastic. 
+
+Warning: !!! The OLS regression is using this assumption: $Var(\epsilon|X_{i})=\sigma^2$, where $sigma$ is a constant.  And lm model in R automatically use the homoskedasticity-only standard error.
+
+### Question 4
+Generate data from the model
+where 𝛽 = 686 and 𝛽 = 0. Here, 𝑋 = expenditure and 𝑛 = 420.
+$test.score=𝛽_0 +𝛽_1*𝑋 +𝑢$, 
+• Generate “expenditure” from 𝑁(5312, 401956). (So $\mu_{expenditure}=5312$)
+
+• Generate $ u=\sqrt{|expenditure - \mu_{expenditure}}$, where 𝑍~𝑁(0,1) is independent of “expenditure”.
+
+ Suppose that you use the homoskedasticity-only standard error (the one from lm function in R) to construct a 95% confidence interval for $\beta_{1}$ , i.e., $\hat{\beta_{1}}± 1.96⋅ 𝑆𝐸$ . Use simulations (2000 repetitions) to compute the coverage probability. Use random seed 947.
+```{r}
+rm(list=ls())
+set.seed(947)
+n=420
+beta0=686
+beta1=0
+m=1.96
+
+M=matrix(NA,2000,1)
+for (j in 1:2000){
+  X1=rnorm(n,5312,sqrt(401956))
+  Z=rnorm(n,0,1)
+  u=sqrt(abs(X1-5312))*Z
+  Y=beta0+beta1*X1+u
+  X.bar=mean(X1) 
+  Y.bar=mean(Y)
+  ols.model=lm(Y~X1) # run the linear model 
+  result=summary(ols.model)
+  SE.wrong=result$coefficients[2,2] # homoskedasticity-only standard error
+  beta1.hat=result$coefficients[2,1]
+  lower_bound=beta1.hat-m*SE.wrong # construct the confidence intervals
+  Upper_bound=beta1.hat+m*SE.wrong
+  M[j]=(lower_bound<beta1&Upper_bound>=beta1) # compute the coverage probability
+}
+mean(M) #0.8345
+```
+Now use the heteroskedasticity-robust standard error to construct a 95% confidence interval for $\beta_{1}$. Use simulations (20000 repetitions) to compute the coverage probability. Code up the formulas for  $\hat{\beta_{1}}$
+1 and $SE(\hat{\beta_{1}})$. Use random seed 947.
+```{r}
+rm(list=ls())
+set.seed(947)
+n=420
+beta0=686
+beta1=0
+m=1.96
+
+M=matrix(NA,20000,1)
+for (j in 1:20000){
+  X1=rnorm(n,5312,sqrt(401956))
+  X=X1
+  Z=rnorm(n,0,1)
+  u=sqrt(abs(X-5312))*Z
+  Y=beta0+beta1*X+u
+  X.bar=mean(X) 
+  Y.bar=mean(Y)
+  beta1.hat= sum((X - X.bar)*(Y - Y.bar))/sum((X - X.bar)^2)
+  beta0.hat= Y.bar- beta1.hat*X.bar 
+  ##########compute heteroskedasticity-robust standard error##########
+  # test bata1
+  Y.hat=beta0.hat+beta1.hat*X
+  u.hat=Y-Y.hat  
+  numerator = sum((X-X.bar)^2*u.hat^2)/(n-2)
+  denominator = (sum((X-X.bar)^2)/n)^2
+  SE.beta1.hat = sqrt((numerator/denominator)*(1/n))
+  lower_bound=beta1.hat-m*SE.beta1.hat
+  Upper_bound=beta1.hat+m*SE.beta1.hat
+  M[j]=(lower_bound<beta1&Upper_bound>=beta1)
+}
+mean(M) #0.94615
+```
+As we can see from observe outputs, heteroskedasticity-robust standard error gives us more accurate confidence intervals. Thus, we should Always use robust standard erros unless you have a very strong, specific reason to believe your errors are homoskedastic.
+
+
+# Multivariate Regressions + Hypothesis testing:
+
+## Continuous variables 
+
+Question 3: 
+Generate data from the model
+$ test.score=𝛽_0 +𝛽_1*𝑋1 +_𝛽_2*𝑋2 +𝑊 $, 
+where 𝛽_0 = 686, 𝛽_1 = 0 and 𝛽_2 = −0.65. Here, 𝑋1 = STR, X2 = %English.learners and 𝑛 = 420.
+• 𝑋1 is from 𝑁(19.64, 8.12)
+• 𝑋2 = 𝑍 + |3 + 1.5𝑋1 + (𝑋1 − 19.64)3(1 + Z^2)|, where 𝑍~𝑁(0,1) is independent of 𝑋1
+• The error 𝑊 is from 𝑁(0,220) and is independent of 𝑋1 and 𝑋2
+̂ Suppose that you run the bivariate regression $Y=𝛽0 +𝛽1* 𝑋1 +u $ and compute 𝛽1 . Use simulations (20000 repetitions) to compute 𝐸(𝛽1 ). Use random seed 947.
+```{r}
+###################### Question 3 #################################
+rm(list=ls())
+set.seed(947)
+n=420
+beta0=686
+beta1=0
+beta2=-0.65
+
+M=matrix(NA,20000,1)
+for (j in 1:20000){
+  X1=rnorm(n,19.64,sqrt(8.12))
+  Z=rnorm(n,0,1)
+  X2=Z+abs(3+1.5*X1+((X1-19.64)^3)*(1+Z^2))
+  W=rnorm(n,0,sqrt(220))
+  Y=beta0+beta1*X1+beta2*X2+W
+  X.bar=mean(X1) # compute X bar (sample avg of X)
+  Y.bar=mean(Y) # compute Y bar (sample avg of Y)
+  beta1.hat= sum((X1 - X.bar)*(Y - Y.bar))/sum((X1 - X.bar)^2)
+  M[j]=beta1.hat
+}
+mean(M)
+#E(beta1.hat)=-4.659155
+```
+### Test if a Linear constraints of the coefficients holds while running the linear model
+
+Question 4: 
+Use “CASchools.Rdata”. Consider the following regression model
+𝑌 = 𝛽0 + 𝛽1𝑋1 + 𝛽2𝑋1^2 + 𝛽3𝑋2 + 𝛽4𝑋2^2 + 𝛽5𝑋1𝑋2 + 𝑢
+• 𝑌 = test.score, 𝑋1 = STR, 𝑋2 = lunch
+
+Use “linearHypothesis” command in R to test 𝐻0: 𝛽1− 3𝛽3 + 𝛽4 = 2 vs 𝐻1: 𝛽1− 3𝛽3 +𝛽4 ≠ 2. Write the code that produces the p-value. 
+```{r}
+# install.packages("AER")  # if needed
+library(AER)
+library(lmtest)    # for coeftest
+library(sandwich)  # for vcovHC
+library(car)       # for linearHypothesis
+
+data("CASchools", package = "AER")
+df <- CASchools
+names(df)
+
+# Create STR (student–teacher ratio) and test score;
+df$STR <- df$students / df$teachers
+df$test.score<- (df$math+df$read+df$english)/3
+
+Y   <- df$math
+X1  <- df$STR
+X2  <- df$lunch
+X1_2 <- X1^2
+X2_2 <- X2^2
+
+model <- lm(Y ~ X1 + X1_2 + X2 + X2_2 + X1:X2, data = df)
+coeftest(model, vcov. = vcovHC, type = "HC1")
+
+# Test linear restriction: X1 - 3*X2 + X2^2 = 2  (with HC1 adjustment)
+linearHypothesis(model, c("X1 - 3*X2 + X2_2 = 2"), white.adjust = "hc1")
+#p_value=0.2287
+```
+
+## Categorical data/ discrete data:
+
+### Dummy variables:
+Dummy variables are indicators coded as 0 or 1 to represent categories in regression models: 
+-They allow qualitative factors (like gender, region, or class size group) to be included in a regression; 
+-The coefficient on a dummy shows how much the dependent variable differs for that group compared to the reference (omitted) category.
+
+Question 5: 
+Use “CASchools.Rdata”. Create a new variable called “class.size”. This variable can take 4 values:
+“low”, “medium-low”, “medium-high” and “high” based on the following criteria
+• If STR<17.75, then class.size is “low”.
+• If 17.75≤STR< 19.27, then class.size is “medium-low”.
+• If 19.27≤STR< 20.60, then class.size is “medium-high”.
+• If STR≥20.60, then class.size is “high”.
+Run the regression of using “class.size” to predict “test.score”. Does “class.size” predict
+“test.score”? Compute the p-value for testing the relevant hypothesis.
+```{r}
+#Question4
+
+df$class.size = NA
+df$class.size[df$STR<17.75]="low"
+df$class.size[df$STR>=17.75 & df$STR<19.27]="medium-low"
+df$class.size[df$STR>=19.27& df$STR<20.60]="medium-high"
+df$class.size[df$STR>=20.60]="high"
+
+reg=lm(test.score ~ class.size, df)
+coeftest(reg, vcov. = vcovHC, type="HC1")
+#If the str can not predict test.score, then the coeffients should all be 0. 
+#H0:"class.sizelow=0","class.sizemedium-high=0","class.sizemedium-low=0"
+linearHypothesis(reg, c("class.sizelow=0","class.sizemedium-high=0","class.sizemedium-low=0"), white.adjust = "hc1")
+#p_value=0.003001 <0.01
+```
+As we can see from the result, The joint test of the three class-size coefficients strongly rejects the null hypothesis (p=0.003), indicating that class size categories have explanatory power for student test scores.
+
+### Combination of categorical variables and continuous varibles in regressions
+
+```{r}
+#Question 5
+Y=data$test.score
+X1=data$STR
+X2=(data$class.size=="medium-low")*1
+X3=(data$class.size=="medium-high")*1
+X4=(data$class.size=="high")*1
+
+reg=lm(Y~X1+X2+X3+X4+X1:X2+X1:X3+X1:X4)
+result=coeftest(reg, vcov. = vcovHC, type="HC1")
+result
+#if the class.size=low, X2=0, X3=0, X4=0, X1:X2=0,X1:X3=0,X1:X4=0. 
+#The effect of STR in schools with low class size is beta1
+m=2.58
+beta1.bar=result[2,1]
+beta1.bar
+#-0.9914103
+SE_beta1=result[2,2]
+lower_bound=beta1.bar-m*SE_beta1
+Upper_bound=beta1.bar+m*SE_beta1
+lower_bound #-8.174011
+Upper_bound #6.19119
+
+```
+
+

@@ -1,0 +1,74 @@
+---
+title: "Causal Inference- Hypothesis Testing"
+author: "Lin_Yu"
+date: "2025-07-23"
+output: pdf_document
+---
+# Hypothesis Testing:
+## Key concepts:
+- Type I error: The probability of choosing alternative hypothesis(H1) when null hypothesis (H0) is true/ alternative hypothesis (H1) is not true
+- Type II error: The probability of choosing null hypothesis(H0) when alternative one(H1) is true/ when the null hypothesis is not true
+- Power: Probability of choosing H0 when H0 is true.
+- p value: the probability of observing the data at least as extreme as what we got, given the null hypothesis (H0) is true
+
+Question 1
+A survey of 76 registered voters is conducted, and the voters are asked to choose between candidate A and candidate B. Let 𝑝 denote the fraction of voters in the population who prefer candidate A, and let 𝑝̂ denote the fraction of voters in the sample who prefer candidate A.
+You are interested in testing 𝐻0: 𝑝 = 0.4 vs 𝐻1: 𝑝 ≠ 0.4. A test (an algorithm) uses the following test:
+• reject𝐻0 if|𝑝̂−0.4|>0.2
+• fail to reject 𝐻0 if |𝑝̂ − 0.4| ≤ 0.2
+Use simulations (20000 repetitions) to compute the power of this algorithm if 𝑝 = 0.55. Use
+random seed 947.
+```{r}
+######################Question 1 #################################
+set.seed(947)
+n=76
+p=0.55
+
+#the power of this algorithm = 1-Pr(typeII error) 
+#Type II error:accept H0 when H0 is not true
+M=matrix(NA,20000,1)
+for (j in 1:20000){
+  Y=rbinom(n,1,p)
+  SE=sqrt(p*(1-p)/n)
+  Y.bar=mean(Y)
+  lower_bound=0.2
+  Upper_bound=0.6
+  M[j]=(lower_bound<=Y.bar&Upper_bound>=Y.bar) # accept H0 denote as 1, else 0
+}
+mean(M)
+power=1-mean(M)
+power
+# power is 0.1937
+```
+Question 2
+Use the survey data in the MASS library in R. Consider two groups of students: those who exercise frequently and those who do not exercise frequently. You want to study whether the mean height is different between these two groups. Phrase the hypothesis testing problem (you do not have to write it). Compute the p-value. You can use either two-sample mean comparison or a bivariate regression. 
+```{r}
+###################### Question 2 #################################
+#######two-sample mean comparison
+#H0:mean difference is 0; H1:mean difference is not 0
+rm(list=ls())
+library(MASS)
+data=survey
+
+newdata1=subset(data, Exer=="Freq")
+newdata2=subset(data, Exer!="Freq")
+
+X = na.omit(newdata1$Height)
+Y = na.omit(newdata2$Height)
+
+n=length(X)  # get the sample size 
+m=length(Y)
+X.bar=mean(X) # compute X bar (sample avg of X)
+Y.bar=mean(Y) # compute Y bar (sample avg of Y)
+S_x=sd(X)
+S_y=sd(Y)
+SE.twosample= sqrt(S_x^2/n + S_y^2/m)
+
+t.twosample=((X.bar-Y.bar)-0)/SE.twosample
+p_value.twosample=2*pnorm(-abs(t.twosample))
+cat("Our p_value for our null hypothesis is:",p_value.twosample)
+#t=3.3643
+#p=0.0007673
+```
+As p_value is: 0.0007673916 <0.05, thus, we should reject H0. The mean height is different between those who frequently exerise and those who do not exercise frequently.
+
