@@ -1,7 +1,9 @@
 ---
 title: "Regression Models"
-output: html_notebook
+output: pdf_document
 ---
+This notebook presents key econometric concepts in regression modeling with direct applications to data science. It demonstrates how to build and interpret bivariate and multivariate regressions, evaluate model assumptions, and apply both homoskedasticity-only and heteroskedasticity-robust standard errors—emphasizing why robust inference is often the safer choice. The notebook also shows how to formally write null and alternative hypotheses, perform hypothesis testing, and interpret p-values in real-world contexts. Both continuous and categorical variables are modeled, with examples of dummy variables and interaction terms. By combining simulations with applied data analysis, this work highlights my ability to apply regression techniques to real problems, draw valid conclusions, and communicate insights effectively—core skills for data science and analytics roles.
+
 # Bivariate Regression:  
 A bivariate regression is the simplest form of regression analysis, where you study the relationship between two variables:
 - One dependent variable (Y) → the outcome you want to explain or predict.
@@ -16,7 +18,20 @@ Analogy: Predicting the price of house based on size, homoskedasticity-only stan
 
 Warning: !!! The OLS regression is using this assumption: $Var(\epsilon|X_{i})=\sigma^2$, where $sigma$ is a constant.  And lm model in R automatically use the homoskedasticity-only standard error.
 
-### Question 4
+```{r}
+# Core packages for regression and econometrics
+library(AER)        # Access to CASchools and Mortgage datasets
+library(lmtest)     # coeftest() for robust regression tests
+library(sandwich)   # vcovHC() for heteroskedasticity-robust SEs
+library(car)        # linearHypothesis() for testing linear restrictions
+
+# Data handling and visualization
+library(ggplot2)    # plotting
+library(dplyr)      # data wrangling (if you plan to tidy up results)
+
+```
+
+### Question 1
 Generate data from the model
 where 𝛽 = 686 and 𝛽 = 0. Here, 𝑋 = expenditure and 𝑛 = 420.
 $test.score=𝛽_0 +𝛽_1*𝑋 +𝑢$, 
@@ -92,38 +107,51 @@ As we can see from observe outputs, heteroskedasticity-robust standard error giv
 
 ## Continuous variables 
 
-Question 3: 
-Generate data from the model
-$ test.score=𝛽_0 +𝛽_1*𝑋1 +_𝛽_2*𝑋2 +𝑊 $, 
-where 𝛽_0 = 686, 𝛽_1 = 0 and 𝛽_2 = −0.65. Here, 𝑋1 = STR, X2 = %English.learners and 𝑛 = 420.
-• 𝑋1 is from 𝑁(19.64, 8.12)
-• 𝑋2 = 𝑍 + |3 + 1.5𝑋1 + (𝑋1 − 19.64)3(1 + Z^2)|, where 𝑍~𝑁(0,1) is independent of 𝑋1
-• The error 𝑊 is from 𝑁(0,220) and is independent of 𝑋1 and 𝑋2
-̂ Suppose that you run the bivariate regression $Y=𝛽0 +𝛽1* 𝑋1 +u $ and compute 𝛽1 . Use simulations (20000 repetitions) to compute 𝐸(𝛽1 ). Use random seed 947.
-```{r}
-###################### Question 3 #################################
-rm(list=ls())
-set.seed(947)
-n=420
-beta0=686
-beta1=0
-beta2=-0.65
+Question 2
+Consider the following regression equation:
+𝑌 = 𝛽0 + 𝛽1𝑋1 + 𝛽2𝑋1^2 + 𝛽3𝑋1^3 + 𝛽4𝑋2 + 𝑢
+• 𝑌 is interest
+• 𝑋1 is income
+• 𝑋2 is “self”
+Answer the following questions.
+(a) Suppose that we interpret the above regression equation as the effect of 𝑋1 on interest, controlling for 𝑋2. We are interested in whether or not this effect is linear. Write down the null and alternative hypotheses and compute p value for the null hypothesis.
 
-M=matrix(NA,20000,1)
-for (j in 1:20000){
-  X1=rnorm(n,19.64,sqrt(8.12))
-  Z=rnorm(n,0,1)
-  X2=Z+abs(3+1.5*X1+((X1-19.64)^3)*(1+Z^2))
-  W=rnorm(n,0,sqrt(220))
-  Y=beta0+beta1*X1+beta2*X2+W
-  X.bar=mean(X1) # compute X bar (sample avg of X)
-  Y.bar=mean(Y) # compute Y bar (sample avg of Y)
-  beta1.hat= sum((X1 - X.bar)*(Y - Y.bar))/sum((X1 - X.bar)^2)
-  M[j]=beta1.hat
-}
-mean(M)
-#E(beta1.hat)=-4.659155
+```{r}
+load("/Users/linyu/Desktop/Casual_inference\ /Mortgage_NA4.RData")
+################# Question a ################
+data_M=Mortgage
+Y=data_M$interest
+X1=data_M$income
+X1_2=X1^2
+X1_3=X1^3
+X2=data_M$self
+
+reg=lm(Y~X1+X1_2+X1_3+X2)
+coeftest(reg, vcov. = vcovHC, type="HC1")
+
+# H0: beta_2 = beta_3 = 0
+linearHypothesis(reg, c("X1_2=0","X1_3=0"), white.adjust = "hc1")
+# p_value=2.2e-16, reject null hypothesis H0: beta_2 = beta_3 = 0
 ```
+
+(b) Suppose that we interpret the above regression equation as the effect of 𝑋1 on interest,controlling for 𝑋2. We are interested in whether or not 𝑋1 has any effect (linear or nonlinear) on interest. Write down the null and alternative hypotheses and compute p value for the null hypothesis.
+
+```{r}
+# H0: beta1 = beta_2 = beta_3 = 0
+################# Question b ################
+linearHypothesis(reg, c("X1=0","X1_2=0","X1_3=0"), white.adjust = "hc1")
+# p_value=2.2e-16, reject null hypothesis H0: beta1 = beta_2 = beta_3 = 0
+```
+
+(c) If a self-employed person’s income increases from $45,000 to $46,000 (in other words, 𝑋1 changes from 45 to 46), is the corresponding change in the prediction of 𝑌 equal to zero? Write down the null and alternative hypotheses and and compute p value for the null hypothesis.
+
+```{r}
+################# Question 3 ################
+# compute delta_Y= beta1+91*beta2-120*beta3=0
+linearHypothesis(reg, c("X1+91*X1_2-120*X1_3=0"), white.adjust = "hc1")
+# p_value=2.2e-16
+```
+
 ### Test if a Linear constraints of the coefficients holds while running the linear model
 
 Question 4: 
@@ -199,11 +227,11 @@ As we can see from the result, The joint test of the three class-size coefficien
 
 ```{r}
 #Question 5
-Y=data$test.score
-X1=data$STR
-X2=(data$class.size=="medium-low")*1
-X3=(data$class.size=="medium-high")*1
-X4=(data$class.size=="high")*1
+Y=df$test.score
+X1=df$STR
+X2=(df$class.size=="medium-low")*1
+X3=(df$class.size=="medium-high")*1
+X4=(df$class.size=="high")*1
 
 reg=lm(Y~X1+X2+X3+X4+X1:X2+X1:X3+X1:X4)
 result=coeftest(reg, vcov. = vcovHC, type="HC1")

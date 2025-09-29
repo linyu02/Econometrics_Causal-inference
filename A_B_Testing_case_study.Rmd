@@ -1,0 +1,50 @@
+---
+title: "A/B Testing Case Study"
+author: "Lin_Yu"
+date: "2025-09-27"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+A/B Testing Case Study: Marketing Campaign Effectiveness
+
+```{r}
+# Load data
+data("PlantGrowth")
+head(PlantGrowth)
+```
+```{r}
+# Subset Control vs Treatment 1
+subset_data <- subset(PlantGrowth, group %in% c("ctrl", "trt1"))
+
+# A/B test (two-sample t-test)
+t_test_result <- t.test(weight ~ group, data = subset_data)
+t_test_result
+
+```
+The test suggests no statistically significant difference between the current marketing campaign (Control) and the new campaign (Treatment 1). The observed decrease of 0.37 units in average outcome is within the range of random variation.
+
+```{r}
+# Load libraries
+library(ggplot2)
+
+# Subset Control vs Treatment 1
+subset_data <- subset(PlantGrowth, group %in% c("ctrl", "trt1"))
+
+# Boxplot with jittered points
+ggplot(subset_data, aes(x = group, y = weight, fill = group)) +
+  geom_boxplot(alpha = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.1, alpha = 0.7) +
+  labs(
+    title = "A/B Test: Control vs Treatment 1",
+    x = "Group (Marketing Campaign)",
+    y = "Outcome (Sales Proxy)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
